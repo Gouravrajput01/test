@@ -1,5 +1,5 @@
 // app/page.js
-// Complete Secure Exam - Camera Must Start First, Then Allow Exam
+// Complete Secure Exam - Camera Always ON, Fullscreen Required to Start
 
 'use client';
 
@@ -19,7 +19,6 @@ export default function Home() {
   const [examStarted, setExamStarted] = useState(false);
   const [isReentering, setIsReentering] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
-  const [showStartButton, setShowStartButton] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [examTime, setExamTime] = useState(20 * 60);
@@ -70,7 +69,7 @@ export default function Home() {
     };
   }, []);
 
-  // Check fullscreen status
+  // Check fullscreen status - Camera stays ON always
   useEffect(() => {
     const checkFullscreen = () => {
       const fs = document.fullscreenElement || document.webkitFullscreenElement;
@@ -114,9 +113,17 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [timerActive, examTime]);
 
-  // Start camera immediately when component mounts
+  // Start camera immediately when component mounts - KEEP IT ON ALWAYS
   useEffect(() => {
     startCameraAndMic();
+    
+    // Cleanup function - stop camera only when component unmounts
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
   }, []);
 
   const startCameraAndMic = async () => {
@@ -139,20 +146,15 @@ export default function Home() {
       
       streamRef.current = stream;
       
-      // Set video source
+      // Set video source for all video elements
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // Ensure video plays
         await videoRef.current.play().catch(err => console.log('Play error:', err));
         
-        // Check if video is actually displaying
         setTimeout(() => {
           if (videoRef.current && videoRef.current.readyState >= 2) {
             setCameraReady(true);
-            setShowStartButton(true);
             console.log('✅ Camera ready');
-          } else {
-            console.log('⚠️ Camera not ready yet');
           }
         }, 1000);
       }
@@ -201,6 +203,7 @@ export default function Home() {
       if (isReentering) {
         setShowFullscreenOverlay(false);
         setIsReentering(false);
+        // Enter fullscreen after re-entry
         setTimeout(() => requestFullscreen(), 300);
         if (examTime > 0) setTimerActive(true);
         return;
@@ -231,12 +234,23 @@ export default function Home() {
   };
 
   const startExam = () => {
-    setShowInstructions(false);
-    setExamStarted(true);
-    setTimeout(() => {
-      requestFullscreen();
+    // Only start if camera is ready AND fullscreen is active
+    if (cameraReady && isFullscreen) {
+      setShowInstructions(false);
+      setExamStarted(true);
       setTimerActive(true);
-    }, 300);
+    } else if (!isFullscreen) {
+      // Request fullscreen first
+      requestFullscreen();
+      // Check again after fullscreen request
+      setTimeout(() => {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          setShowInstructions(false);
+          setExamStarted(true);
+          setTimerActive(true);
+        }
+      }, 500);
+    }
   };
 
   const requestFullscreen = () => {
@@ -327,6 +341,30 @@ export default function Home() {
           This exam must be taken in fullscreen mode.
         </p>
         
+        {/* Camera Preview in Overlay - Camera Stays ON */}
+        <div style={{
+          width: '200px',
+          height: '150px',
+          background: '#0a0f18',
+          borderRadius: '12px',
+          overflow: 'hidden',
+          border: '2px solid #2d3a4f',
+          marginBottom: '20px'
+        }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              background: '#0a0f18'
+            }}
+          />
+        </div>
+
         <div style={{
           background: '#141b26',
           padding: '30px',
@@ -505,7 +543,7 @@ export default function Home() {
     );
   }
 
-  // Instructions Screen with Camera Preview
+  // Instructions Screen with Camera Preview - Fullscreen and Camera Required to Start
   if (showInstructions && cameraReady) {
     return (
       <div style={{
@@ -575,6 +613,20 @@ export default function Home() {
               <span style={{ color: cameraActive ? '#40c057' : '#e06060' }}>●</span> 
               {cameraActive ? ' Camera Live' : ' Camera Off'}
             </div>
+          </div>
+
+          {/* Fullscreen Status */}
+          <div style={{
+            textAlign: 'center',
+            marginBottom: '16px',
+            padding: '10px',
+            borderRadius: '12px',
+            background: isFullscreen ? 'rgba(64, 192, 87, 0.15)' : 'rgba(224, 96, 96, 0.15)',
+            border: `1px solid ${isFullscreen ? 'rgba(64, 192, 87, 0.3)' : 'rgba(224, 96, 96, 0.3)'}`
+          }}>
+            <span style={{ color: isFullscreen ? '#40c057' : '#e06060' }}>
+              {isFullscreen ? '✅ Fullscreen Active' : '⛶ Fullscreen Required to Start Exam'}
+            </span>
           </div>
 
           <div style={{ color: '#b6ceff', fontSize: '0.95rem', lineHeight: '1.8' }}>
@@ -654,24 +706,51 @@ export default function Home() {
 
           <button
             onClick={startExam}
+            disabled={!isFullscreen}
             style={{
               width: '100%',
               padding: '18px',
-              background: '#2d6ff7',
+              background: isFullscreen ? '#2d6ff7' : '#555',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
               fontSize: '1.2rem',
               fontWeight: '600',
-              cursor: 'pointer',
+              cursor: isFullscreen ? 'pointer' : 'not-allowed',
               transition: '0.2s',
-              marginTop: '20px'
+              marginTop: '20px',
+              opacity: isFullscreen ? 1 : 0.5
             }}
-            onMouseEnter={(e) => e.target.style.background = '#1f5be0'}
-            onMouseLeave={(e) => e.target.style.background = '#2d6ff7'}
+            onMouseEnter={(e) => {
+              if (isFullscreen) e.target.style.background = '#1f5be0';
+            }}
+            onMouseLeave={(e) => {
+              if (isFullscreen) e.target.style.background = '#2d6ff7';
+            }}
           >
-            ✅ I Understand · Start Exam
+            {isFullscreen ? '✅ Start Exam' : '⛶ Enter Fullscreen First'}
           </button>
+          {!isFullscreen && (
+            <button
+              onClick={requestFullscreen}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: 'transparent',
+                color: '#8aa3cc',
+                border: '1px solid #2d3a4f',
+                borderRadius: '12px',
+                fontSize: '1rem',
+                cursor: 'pointer',
+                marginTop: '10px',
+                transition: '0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.background = 'rgba(45, 111, 247, 0.1)'}
+              onMouseLeave={(e) => e.target.style.background = 'transparent'}
+            >
+              ⛶ Click to Enter Fullscreen
+            </button>
+          )}
         </div>
       </div>
     );
