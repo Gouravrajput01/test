@@ -1,5 +1,5 @@
 // app/page.js
-// Complete Secure Exam - Camera Always ON, Fullscreen Required to Start
+// Complete Secure Exam - Fullscreen + Camera Working Perfectly
 
 'use client';
 
@@ -17,7 +17,6 @@ export default function Home() {
   const [micActive, setMicActive] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
   const [examStarted, setExamStarted] = useState(false);
-  const [isReentering, setIsReentering] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -69,7 +68,7 @@ export default function Home() {
     };
   }, []);
 
-  // Check fullscreen status - Camera stays ON always
+  // Check fullscreen status
   useEffect(() => {
     const checkFullscreen = () => {
       const fs = document.fullscreenElement || document.webkitFullscreenElement;
@@ -113,11 +112,9 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [timerActive, examTime]);
 
-  // Start camera immediately when component mounts - KEEP IT ON ALWAYS
+  // Start camera immediately when component mounts
   useEffect(() => {
     startCameraAndMic();
-    
-    // Cleanup function - stop camera only when component unmounts
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -146,7 +143,6 @@ export default function Home() {
       
       streamRef.current = stream;
       
-      // Set video source for all video elements
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(err => console.log('Play error:', err));
@@ -166,14 +162,13 @@ export default function Home() {
       
     } catch (err) {
       console.error('Media error:', err);
-      setMediaError('⚠️ Camera/Microphone access required. Please allow permissions and refresh the page.');
+      setMediaError('⚠️ Camera/Microphone access required. Please allow permissions and refresh.');
       setCameraActive(false);
       setMicActive(false);
     }
   };
 
-  // Handle email submission with server logging
-  const handleEmailSubmit = async (e) => {
+  const handleEmailSubmit = (e) => {
     e.preventDefault();
     setEmailError('');
 
@@ -182,67 +177,17 @@ export default function Home() {
       return;
     }
 
-    try {
-      const response = await fetch('/api/log-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          timestamp: new Date().toISOString(),
-          action: isReentering ? 'reentry' : 'initial'
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Server error');
-      }
-
-      const result = await response.json();
-      console.log('Email logged:', result);
-      
-      if (isReentering) {
-        setShowFullscreenOverlay(false);
-        setIsReentering(false);
-        // Enter fullscreen after re-entry
-        setTimeout(() => requestFullscreen(), 300);
-        if (examTime > 0) setTimerActive(true);
-        return;
-      }
-
-      setIsEmailSubmitted(true);
-      setShowInstructions(true);
-      
-    } catch (err) {
-      console.error('Error logging email:', err);
-      setEmailError('⚠️ Could not save email. Please try again.');
-    }
-  };
-
-  // Handle re-entry from fullscreen overlay
-  const handleReentrySubmit = async (e) => {
-    e.preventDefault();
-    const reentryEmail = e.target.email.value;
-    if (!reentryEmail || !reentryEmail.includes('@')) {
-      alert('Please enter a valid email');
-      return;
-    }
-    setIsReentering(true);
-    setEmail(reentryEmail);
-    const submitEvent = new Event('submit');
-    submitEvent.preventDefault = () => {};
-    await handleEmailSubmit(submitEvent);
+    setIsEmailSubmitted(true);
+    setShowInstructions(true);
   };
 
   const startExam = () => {
-    // Only start if camera is ready AND fullscreen is active
     if (cameraReady && isFullscreen) {
       setShowInstructions(false);
       setExamStarted(true);
       setTimerActive(true);
     } else if (!isFullscreen) {
-      // Request fullscreen first
       requestFullscreen();
-      // Check again after fullscreen request
       setTimeout(() => {
         if (document.fullscreenElement || document.webkitFullscreenElement) {
           setShowInstructions(false);
@@ -324,7 +269,7 @@ export default function Home() {
     );
   }
 
-  // Fullscreen overlay with email re-entry
+  // Fullscreen overlay
   if (showFullscreenOverlay) {
     return (
       <div style={{ 
@@ -335,13 +280,10 @@ export default function Home() {
         <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🔒</div>
         <h1 style={{ fontSize: '2.5rem', marginBottom: '20px', color: '#f7b731' }}>Fullscreen Required</h1>
         <p style={{ fontSize: '1.2rem', color: '#ff6b6b', marginBottom: '20px' }}>
-          ⚠️ You exited fullscreen mode. Please re-enter your email to continue.
-        </p>
-        <p style={{ fontSize: '1rem', color: '#b6ceff', marginBottom: '30px' }}>
-          This exam must be taken in fullscreen mode.
+          ⚠️ You exited fullscreen mode. Please enter fullscreen to continue.
         </p>
         
-        {/* Camera Preview in Overlay - Camera Stays ON */}
+        {/* Camera Preview - Stays ON */}
         <div style={{
           width: '200px',
           height: '150px',
@@ -365,67 +307,41 @@ export default function Home() {
           />
         </div>
 
-        <div style={{
-          background: '#141b26',
-          padding: '30px',
-          borderRadius: '16px',
-          border: '1px solid #2d3a4f',
-          maxWidth: '400px',
-          width: '100%',
-          marginBottom: '30px'
-        }}>
-          <form onSubmit={handleReentrySubmit}>
-            <p style={{ color: '#8aa3cc', marginBottom: '15px', fontSize: '0.9rem' }}>
-              📧 Enter your email again to resume exam
-            </p>
-            <input
-              type="email"
-              name="email"
-              placeholder="your@email.com"
-              style={{
-                width: '100%',
-                padding: '14px 18px',
-                borderRadius: '12px',
-                border: '2px solid #2d3a4f',
-                background: '#0a0f18',
-                color: '#f0f4ff',
-                fontSize: '1rem',
-                outline: 'none',
-                marginBottom: '12px'
-              }}
-              required
-              autoFocus
-            />
-            <button
-              type="submit"
-              style={{
-                width: '100%',
-                padding: '16px',
-                background: '#2d6ff7',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: '0.2s'
-              }}
-              onMouseEnter={(e) => e.target.style.background = '#1f5be0'}
-              onMouseLeave={(e) => e.target.style.background = '#2d6ff7'}
-            >
-              ⛶ Enter Fullscreen & Continue
-            </button>
-          </form>
-        </div>
+        <button
+          onClick={() => {
+            requestFullscreen();
+            setTimeout(() => {
+              if (document.fullscreenElement || document.webkitFullscreenElement) {
+                setShowFullscreenOverlay(false);
+                setTimerActive(true);
+              }
+            }, 500);
+          }}
+          style={{
+            background: '#2d6ff7',
+            color: 'white',
+            border: 'none',
+            padding: '18px 50px',
+            fontSize: '1.3rem',
+            borderRadius: '50px',
+            cursor: 'pointer',
+            fontWeight: 700,
+            transition: '0.15s'
+          }}
+          onMouseEnter={(e) => e.target.style.background = '#1f5be0'}
+          onMouseLeave={(e) => e.target.style.background = '#2d6ff7'}
+        >
+          ⛶ Enter Fullscreen
+        </button>
 
         <p style={{ marginTop: '20px', fontSize: '0.9rem', color: '#5d739b' }}>
-          <span style={{ marginRight: '10px' }}>📷</span> Camera & Mic Active · Copy/Paste Disabled
+          <span style={{ marginRight: '10px' }}>📷</span> Camera Active · Copy/Paste Disabled
         </p>
       </div>
     );
   }
 
-  // Email entry screen (only shown after camera is ready)
+  // Email entry screen
   if (!isEmailSubmitted && cameraReady) {
     return (
       <div style={{
@@ -462,11 +378,11 @@ export default function Home() {
               border: '1px solid rgba(64, 192, 87, 0.3)'
             }}>
               <span style={{ color: '#40c057', fontSize: '0.85rem' }}>
-                📷 Camera & Microphone Active ✅
+                📷 Camera Active ✅
               </span>
             </div>
             <p style={{ color: '#5d739b', fontSize: '0.8rem', marginTop: '8px' }}>
-              📝 Your email will be logged for security
+              Enter your email to begin
             </p>
           </div>
 
@@ -535,7 +451,6 @@ export default function Home() {
           }}>
             <span>🔒 Secure</span>
             <span>📷 Proctored</span>
-            <span>⚡ AI Monitoring</span>
             <span>🚫 No Copy/Paste</span>
           </div>
         </div>
@@ -543,7 +458,7 @@ export default function Home() {
     );
   }
 
-  // Instructions Screen with Camera Preview - Fullscreen and Camera Required to Start
+  // Instructions Screen
   if (showInstructions && cameraReady) {
     return (
       <div style={{
@@ -560,7 +475,7 @@ export default function Home() {
           padding: '40px 48px',
           borderRadius: '24px',
           border: '1px solid #2d3a4f',
-          maxWidth: '800px',
+          maxWidth: '700px',
           width: '100%',
           maxHeight: '90vh',
           overflow: 'auto',
@@ -611,7 +526,7 @@ export default function Home() {
               border: '1px solid #3d5272'
             }}>
               <span style={{ color: cameraActive ? '#40c057' : '#e06060' }}>●</span> 
-              {cameraActive ? ' Camera Live' : ' Camera Off'}
+              {cameraActive ? ' LIVE' : ' OFF'}
             </div>
           </div>
 
@@ -624,8 +539,8 @@ export default function Home() {
             background: isFullscreen ? 'rgba(64, 192, 87, 0.15)' : 'rgba(224, 96, 96, 0.15)',
             border: `1px solid ${isFullscreen ? 'rgba(64, 192, 87, 0.3)' : 'rgba(224, 96, 96, 0.3)'}`
           }}>
-            <span style={{ color: isFullscreen ? '#40c057' : '#e06060' }}>
-              {isFullscreen ? '✅ Fullscreen Active' : '⛶ Fullscreen Required to Start Exam'}
+            <span style={{ color: isFullscreen ? '#40c057' : '#e06060', fontWeight: '600' }}>
+              {isFullscreen ? '✅ Fullscreen Active' : '⛶ Fullscreen Required to Start'}
             </span>
           </div>
 
@@ -637,14 +552,12 @@ export default function Home() {
               marginBottom: '16px',
               border: '1px solid #2d3a4f'
             }}>
-              <p><strong style={{ color: '#f0f4ff' }}>📌 Test Name:</strong> Softmax Requirement Test (SRT-2026-2.0)</p>
+              <p><strong style={{ color: '#f0f4ff' }}>📌 Test:</strong> Softmax Requirement Test (SRT-2026-2.0)</p>
               <p><strong style={{ color: '#f0f4ff' }}>🎯 Role:</strong> IT Intern – Project Task Assessment</p>
-              <p><strong style={{ color: '#f0f4ff' }}>📝 Total Questions:</strong> 30</p>
+              <p><strong style={{ color: '#f0f4ff' }}>📝 Questions:</strong> 30</p>
               <p><strong style={{ color: '#f0f4ff' }}>⏱️ Duration:</strong> 20 Minutes</p>
               <p><strong style={{ color: '#f0f4ff' }}>📅 Date:</strong> 06 July 2026</p>
-              <p><strong style={{ color: '#f0f4ff' }}>🕐 Reporting Time:</strong> 09:55 PM</p>
-              <p><strong style={{ color: '#f0f4ff' }}>🚀 Start Time:</strong> 10:00 PM Sharp</p>
-              <p><strong style={{ color: '#f0f4ff' }}>💻 Mode:</strong> Online (Laptop/Desktop Mandatory)</p>
+              <p><strong style={{ color: '#f0f4ff' }}>💻 Mode:</strong> Online (Laptop/Desktop Only)</p>
             </div>
 
             <div style={{ 
@@ -654,34 +567,14 @@ export default function Home() {
               marginBottom: '16px',
               border: '1px solid #2d3a4f'
             }}>
-              <h3 style={{ color: '#f7b731', marginBottom: '8px' }}>⚡ Assessment Guidelines</h3>
+              <h3 style={{ color: '#f7b731', marginBottom: '8px' }}>⚡ Guidelines</h3>
               <ul style={{ paddingLeft: '20px', color: '#b6ceff' }}>
-                <li>The test must be attempted using a laptop or desktop device only.</li>
-                <li>This assessment is conducted in an AI-Protected Examination Environment.</li>
-                <li>Browser tab switching, screen recording, screenshot capturing, mobile photography, or any unauthorized activity may trigger an instant security alert.</li>
-                <li>All examination activities are monitored in real time by the Softmax Requirement Team.</li>
-                <li>Candidates violating assessment guidelines may be disqualified from the selection process.</li>
-                <li>Please ensure a stable internet connection before the examination begins.</li>
-              </ul>
-            </div>
-
-            <div style={{ 
-              background: '#0a0f18', 
-              padding: '16px', 
-              borderRadius: '12px',
-              marginBottom: '16px',
-              border: '1px solid #2d3a4f'
-            }}>
-              <h3 style={{ color: '#f7b731', marginBottom: '8px' }}>🏆 Selection Process</h3>
-              <p style={{ color: '#b6ceff' }}>
-                Candidates achieving the required performance in SRT-2026-2.0 will be shortlisted for the next stage.
-                The shortlisted candidates will be invited to attend a <strong style={{ color: '#f0f4ff' }}>Screening Round</strong>, which may include:
-              </p>
-              <ul style={{ paddingLeft: '20px', color: '#b6ceff' }}>
-                <li>Technical discussion</li>
-                <li>Problem-solving and analytical questions</li>
-                <li>Project and internship-related discussions</li>
-                <li>Communication and professional suitability assessment</li>
+                <li>Laptop or desktop device only</li>
+                <li>AI-Protected Examination Environment</li>
+                <li>Tab switching, screen recording, screenshots are prohibited</li>
+                <li>Real-time monitoring by Softmax Team</li>
+                <li>Violations may lead to disqualification</li>
+                <li>Stable internet connection required</li>
               </ul>
             </div>
 
@@ -694,15 +587,37 @@ export default function Home() {
               textAlign: 'center'
             }}>
               <p style={{ color: '#b6ceff', fontStyle: 'italic' }}>
-                "We wish you success and look forward to evaluating your skills and potential."
+                "We wish you success and look forward to evaluating your skills."
               </p>
               <p style={{ color: '#8aa3cc', marginTop: '8px' }}>
                 <strong>Vishesh Jain</strong><br />
-                HR Department<br />
-                Softmax Technologies
+                HR Department · Softmax Technologies
               </p>
             </div>
           </div>
+
+          {!isFullscreen && (
+            <button
+              onClick={requestFullscreen}
+              style={{
+                width: '100%',
+                padding: '18px',
+                background: '#f7b731',
+                color: '#0a0e14',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '1.2rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: '0.2s',
+                marginTop: '10px'
+              }}
+              onMouseEnter={(e) => e.target.style.background = '#f5a623'}
+              onMouseLeave={(e) => e.target.style.background = '#f7b731'}
+            >
+              ⛶ Enter Fullscreen
+            </button>
+          )}
 
           <button
             onClick={startExam}
@@ -718,7 +633,7 @@ export default function Home() {
               fontWeight: '600',
               cursor: isFullscreen ? 'pointer' : 'not-allowed',
               transition: '0.2s',
-              marginTop: '20px',
+              marginTop: '10px',
               opacity: isFullscreen ? 1 : 0.5
             }}
             onMouseEnter={(e) => {
@@ -730,27 +645,6 @@ export default function Home() {
           >
             {isFullscreen ? '✅ Start Exam' : '⛶ Enter Fullscreen First'}
           </button>
-          {!isFullscreen && (
-            <button
-              onClick={requestFullscreen}
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: 'transparent',
-                color: '#8aa3cc',
-                border: '1px solid #2d3a4f',
-                borderRadius: '12px',
-                fontSize: '1rem',
-                cursor: 'pointer',
-                marginTop: '10px',
-                transition: '0.2s'
-              }}
-              onMouseEnter={(e) => e.target.style.background = 'rgba(45, 111, 247, 0.1)'}
-              onMouseLeave={(e) => e.target.style.background = 'transparent'}
-            >
-              ⛶ Click to Enter Fullscreen
-            </button>
-          )}
         </div>
       </div>
     );

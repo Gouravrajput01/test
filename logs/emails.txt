@@ -1,0 +1,4 @@
+[2026-07-06T15:12:13.101Z] Email entered: scienceindianet@gmail.com | Email: scienceindianet@gmail.com | Violations: 0
+[2026-07-06T15:12:30.592Z] ✅ Exam started for: scienceindianet@gmail.com | Email: scienceindianet@gmail.com | Violations: 0
+[2026-07-06T15:12:35.913Z] ⚠️ Fullscreen exited by: scienceindianet@gmail.com | Email: scienceindianet@gmail.com | Violations: 0
+[2026-07-06T15:12:54.194Z] ⚠️ Tab switch by: scienceindianet@gmail.com (Violation #2) | Email: scienceindianet@gmail.com | Violations: 1

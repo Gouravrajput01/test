@@ -6,40 +6,32 @@ import path from 'path';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { email, timestamp, action } = body;
-
-    if (!email || !email.includes('@')) {
-      return NextResponse.json(
-        { error: 'Invalid email' },
-        { status: 400 }
-      );
-    }
-
-    const logPath = path.join(process.cwd(), 'log.txt');
-    const logEntry = `[${timestamp || new Date().toISOString()}] ${action || 'initial'} - ${email}\n`;
-
-    fs.appendFileSync(logPath, logEntry, 'utf8');
-
-    console.log('✅ Email logged:', email, action);
-
-    return NextResponse.json(
-      { success: true, message: 'Email logged successfully' },
-      { status: 200 }
-    );
-
-  } catch (error) {
-    console.error('❌ Error logging email:', error);
+    const { email, timestamp, message, violations } = body;
     
-    try {
-      const logPath = path.join(process.cwd(), 'log.txt');
-      const fallbackEntry = `[${new Date().toISOString()}] ERROR: ${error.message}\n`;
-      fs.appendFileSync(logPath, fallbackEntry, 'utf8');
-    } catch (fsError) {
-      console.error('Failed to write to log file:', fsError);
+    const logEntry = `[${timestamp || new Date().toISOString()}] ${message || 'Email entered'} | Email: ${email} | Violations: ${violations || 0}\n`;
+    
+    // Log to file (server-side)
+    const logPath = path.join(process.cwd(), 'logs', 'emails.txt');
+    
+    // Ensure logs directory exists
+    const logDir = path.join(process.cwd(), 'logs');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
     }
-
+    
+    // Append to file
+    fs.appendFileSync(logPath, logEntry, 'utf8');
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Email logged successfully',
+      entry: logEntry.trim()
+    });
+    
+  } catch (error) {
+    console.error('Log error:', error);
     return NextResponse.json(
-      { error: 'Server error' },
+      { success: false, error: error.message },
       { status: 500 }
     );
   }
