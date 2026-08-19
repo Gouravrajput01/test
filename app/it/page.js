@@ -636,7 +636,7 @@ export default function Home() {
                 fontWeight: '700',
                 marginBottom: '8px'
               }}>
-                📝 Softmax BDE
+                📝 Softmax IT Intern
               </h1>
               <h2 style={{
                 color: '#b6ceff',
@@ -1278,7 +1278,7 @@ export default function Home() {
             }}
             allow="camera; microphone; fullscreen"
             allowFullScreen
-            title="Softmax BDE Requirement Test"
+            title="Softmax IT Intern Requirement Test"
           />
         )}
 
